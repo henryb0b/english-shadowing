@@ -96,7 +96,13 @@ export function parseYouTubeTranscript(raw: string): { rows: TimedRow[]; errors:
   let orphan = false;
 
   for (const line of raw.split('\n').map((l) => l.trim()).filter(Boolean)) {
-    const m = line.match(/^((?:\d{1,2}:)?\d{1,2}:\d{2}(?:\.\d+)?)\s*(.*)$/);
+    // Section titles such as "Phân cảnh 2: …" are not caption text.
+    if (/^Phân cảnh\b/i.test(line)) continue;
+    // Timestamp, then an optional duration label that YouTube adds in some locales:
+    // "0:055 giây" = 0:05 + "5 giây", "1:041 phút, 4 giây" = 1:04 + "1 phút, 4 giây".
+    const m = line.match(
+      /^((?:\d{1,2}:)?\d{1,2}:\d{2}(?:\.\d+)?)(?:\d+ phút(?:, \d+ giây)?|\d+ giây)?\s*(.*)$/,
+    );
     if (m) {
       const start = toSeconds(m[1]);
       if (m[2]) segments.push({ start, text: m[2] });

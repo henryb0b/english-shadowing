@@ -143,3 +143,27 @@ describe('parseYouTubeTranscript', () => {
     expect(parseYouTubeTranscript('just text here').errors).toContainEqual(expect.stringMatching(/Không tìm thấy mốc/));
   });
 });
+
+describe('parseYouTubeTranscript with Vietnamese-locale copy', () => {
+  it('reads "0:055 giây" style stamps and skips section titles', async () => {
+    const { parseYouTubeTranscript } = await import('./lessonParser');
+    const raw = [
+      '0:000 giâyA few years ago, I was speaking with a business leader who was frustrated.',
+      '0:055 giâyHe was always pitching new ideas.',
+      'Phân cảnh 2: Dreamers vs. detectives',
+      '1:041 phút, 4 giâyAfter years of interacting with business leaders.',
+      '1:111 phút, 11 giâyThere are two types of people.',
+    ].join('\n');
+    const { rows, errors } = parseYouTubeTranscript(raw);
+    expect(errors).toEqual([]);
+    expect(rows.map((r) => r.text)).toEqual([
+      'A few years ago, I was speaking with a business leader who was frustrated.',
+      'He was always pitching new ideas.',
+      'After years of interacting with business leaders.',
+      'There are two types of people.',
+    ]);
+    expect(rows[0].start).toBe('0.00');
+    expect(rows[1].start).toBe('5.00');
+    expect(rows[2].start).toBe('64.00');
+  });
+});
