@@ -143,8 +143,6 @@ export default function CreateLesson({ voice, onSave, onDone, cloudEnabled, isTe
     setMessage(null);
     if (locked) return setMessage({ kind: 'error', text: 'Hãy đăng nhập giáo viên để thêm bài chung.' });
     if (!title.trim()) return setMessage({ kind: 'error', text: 'Hãy nhập tiêu đề bài.' });
-    if (!phraseEn.trim()) return setMessage({ kind: 'error', text: 'Hãy nhập cụm từ giao tiếp dùng ngoài bài.' });
-    if (!question.trim()) return setMessage({ kind: 'error', text: 'Hãy nhập câu hỏi IELTS Speaking.' });
 
     let sentences: Sentence[] = [];
     const warnings: string[] = [];
@@ -284,17 +282,17 @@ export default function CreateLesson({ voice, onSave, onDone, cloudEnabled, isTe
 
         <div className="grid-2">
           <label className="field">
-            <span>Cụm từ giao tiếp (tiếng Anh)</span>
+            <span>Cụm từ giao tiếp (tiếng Anh, không bắt buộc)</span>
             <input value={phraseEn} onChange={(e) => setPhraseEn(e.target.value)} placeholder="Ví dụ: I'm not in the mood." />
           </label>
           <label className="field">
-            <span>Nghĩa tiếng Việt</span>
+            <span>Nghĩa tiếng Việt (không bắt buộc)</span>
             <input value={phraseVi} onChange={(e) => setPhraseVi(e.target.value)} placeholder="Ví dụ: Mình không có hứng." />
           </label>
         </div>
 
         <label className="field">
-          <span>Câu hỏi IELTS Speaking (tiếng Anh)</span>
+          <span>Câu hỏi IELTS Speaking (tiếng Anh, không bắt buộc)</span>
           <textarea rows={2} value={question} onChange={(e) => setQuestion(e.target.value)} />
         </label>
       </div>

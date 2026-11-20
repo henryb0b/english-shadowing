@@ -397,9 +397,11 @@ export default function Practice({ story, progress, updateProgress, voices, voic
           {story.youtubeId && <span className="badge">YouTube</span>}
         </div>
         <h2>{story.title}</h2>
-        <p className="phrase">
-          Cụm từ dùng ngoài bài: <strong>“{story.phrase.en}”</strong> <span className="muted">({story.phrase.vi})</span>
-        </p>
+        {story.phrase.en && (
+          <p className="phrase">
+            Cụm từ dùng ngoài bài: <strong>“{story.phrase.en}”</strong> <span className="muted">({story.phrase.vi})</span>
+          </p>
+        )}
         <p className="focus-note">
           <strong>Trọng tâm: {FOCUS_LABEL[story.focus]}.</strong> {story.focusNote}
         </p>
@@ -686,6 +688,7 @@ export default function Practice({ story, progress, updateProgress, voices, voic
         </ol>
       </div>
 
+      {story.ieltsQuestion && (
       <div className="card ielts">
         <p className="label-strong">
           Câu hỏi IELTS Speaking{story.part === 2 ? ' · Đoạn trích luyện kể' : ''}
@@ -707,6 +710,7 @@ export default function Practice({ story, progress, updateProgress, voices, voic
           Tôi đã trả lời câu hỏi này
         </label>
       </div>
+      )}
     </section>
   );
 }
