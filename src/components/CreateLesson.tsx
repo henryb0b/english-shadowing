@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { CriterionKey, Difficulty, IeltsPart, Sentence, Story } from '../types';
 import { LessonPlayer } from '../lib/player';
-import { parseTranscript, parseYouTubeTranscript, validateAudioRows, type AudioRowInput } from '../lib/lessonParser';
+import { parseAnyTranscript, parseTranscript, parseYouTubeTranscript, validateAudioRows, type AudioRowInput } from '../lib/lessonParser';
 import { parseYouTubeId } from '../lib/youtube';
 import { signIn, signOut } from '../lib/cloud';
 import { FOCUS_LABEL } from './labels';
@@ -68,7 +68,7 @@ export default function CreateLesson({ voice, onSave, onDone, cloudEnabled, isTe
   const [message, setMessage] = useState<{ kind: 'error' | 'warn' | 'ok'; text: string } | null>(null);
   const [saving, setSaving] = useState(false);
 
-  const parsed = useMemo(() => parseTranscript(transcript), [transcript]);
+  const parsed = useMemo(() => parseAnyTranscript(transcript), [transcript]);
   const youtubeId = useMemo(() => (youtubeUrl.trim() ? parseYouTubeId(youtubeUrl) : null), [youtubeUrl]);
 
   const rowResults = useMemo(() => rows.map((r, i) => rowToSentence(r, i)), [rows]);
@@ -314,7 +314,7 @@ export default function CreateLesson({ voice, onSave, onDone, cloudEnabled, isTe
         {mode === 'transcript' && (
           <>
             <label className="field">
-              <span>Transcript: mỗi dòng là một câu tiếng Anh</span>
+              <span>Transcript: mỗi dòng là một câu tiếng Anh, hoặc dán nguyên bản chép lời copy từ YouTube</span>
               <textarea rows={8} value={transcript} onChange={(e) => setTranscript(e.target.value)} placeholder={TRANSCRIPT_EXAMPLE} />
             </label>
             <details className="help">

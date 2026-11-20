@@ -194,3 +194,21 @@ export function validateAudioRows(rows: AudioRowInput[], duration: number): (str
     return null;
   });
 }
+
+/** True when the text looks like a YouTube transcript copy (lines start with a timestamp). */
+export function isTimedTranscript(raw: string): boolean {
+  return raw
+    .split('\n')
+    .some((l) => /^\s*(?:\d{1,2}:)?\d{1,2}:\d{2}/.test(l));
+}
+
+/**
+ * Accepts either plain lines (one sentence per line, optional || hints) or a YouTube transcript copy.
+ * A YouTube copy keeps its sentences for listening only: timings are dropped.
+ */
+export function parseAnyTranscript(raw: string): ParseResult {
+  if (!isTimedTranscript(raw)) return parseTranscript(raw);
+  const { rows, errors } = parseYouTubeTranscript(raw);
+  const sentences: Sentence[] = rows.map((r, i) => ({ id: `y${i + 1}`, text: r.text, scorable: false }));
+  return { sentences, errors };
+}

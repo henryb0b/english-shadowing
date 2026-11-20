@@ -174,3 +174,18 @@ describe('parseYouTubeTranscript with English-locale copy', () => {
     expect(rows[2].start).toBe('25.00');
   });
 });
+
+describe('parseAnyTranscript', () => {
+  it('accepts a YouTube copy in the transcript box and drops timings', async () => {
+    const { parseAnyTranscript } = await import('./lessonParser');
+    const raw = ['Chapter 1: Start', '0:044 secondsHello there.', '0:0810 seconds[Music]', '0:1111 secondsHow are you?'].join('\n');
+    const { sentences, errors } = parseAnyTranscript(raw);
+    expect(errors).toEqual([]);
+    expect(sentences.map((s) => s.text)).toEqual(['Hello there.', 'How are you?']);
+    expect(sentences.every((s) => !s.scorable && s.start === undefined)).toBe(true);
+  });
+  it('still reads plain lines', async () => {
+    const { parseAnyTranscript } = await import('./lessonParser');
+    expect(parseAnyTranscript('One.\nTwo.').sentences.length).toBe(2);
+  });
+});
