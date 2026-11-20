@@ -152,3 +152,25 @@ describe('parseYouTubeTranscript with Vietnamese-locale copy', () => {
     expect(rows[2].start).toBe('64.00');
   });
 });
+
+describe('parseYouTubeTranscript with English-locale copy', () => {
+  it('reads "0:044 seconds" stamps, skips chapter titles and sound tags', async () => {
+    const { parseYouTubeTranscript } = await import('./lessonParser');
+    const raw = [
+      'Chapter 1: The art of noticing',
+      '0:044 secondsMy name is Kate. I am a designer.',
+      '0:1111 secondsI am pretty much always watching how people navigate the designed world.',
+      '0:2424 seconds[Use other door]',
+      '0:2525 seconds(Laughter) For over 20 years, I have been taking photographs of signs.',
+    ].join('\n');
+    const { rows, errors } = parseYouTubeTranscript(raw);
+    expect(errors).toEqual([]);
+    expect(rows.map((r) => r.text)).toEqual([
+      'My name is Kate. I am a designer.',
+      'I am pretty much always watching how people navigate the designed world.',
+      'For over 20 years, I have been taking photographs of signs.',
+    ]);
+    expect(rows[1].start).toBe('11.00');
+    expect(rows[2].start).toBe('25.00');
+  });
+});

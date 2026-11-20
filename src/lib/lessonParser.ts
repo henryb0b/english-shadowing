@@ -78,6 +78,17 @@ export interface TimedRow {
 
 const MAX_SENTENCE_SECONDS = 12;
 
+/** Removes leading sound tags such as "[Music]" or "(Laughter)". */
+function stripSoundTags(text: string): string {
+  let out = text.trim();
+  let prev: string;
+  do {
+    prev = out;
+    out = out.replace(/^(\[[^\]]*\]|\([^)]*\))\s*/, '');
+  } while (out !== prev);
+  return out.trim();
+}
+
 function toSeconds(stamp: string): number {
   return stamp
     .split(':')
@@ -96,24 +107,32 @@ export function parseYouTubeTranscript(raw: string): { rows: TimedRow[]; errors:
   let orphan = false;
 
   for (const line of raw.split('\n').map((l) => l.trim()).filter(Boolean)) {
-    // Section titles such as "Phân cảnh 2: …" are not caption text.
-    if (/^Phân cảnh\b/i.test(line)) continue;
-    // Timestamp, then an optional duration label that YouTube adds in some locales:
-    // "0:055 giây" = 0:05 + "5 giây", "1:041 phút, 4 giây" = 1:04 + "1 phút, 4 giây".
+    // Section titles such as "Phân cảnh 2: …" or "Chapter 1: …" are not caption text.
+    if (/^(Phân cảnh|Chapter)\b/i.test(line)) continue;
+    // Timestamp, then an optional duration label added by YouTube in some locales:
+    // "0:055 giây", "1:041 phút, 4 giây", "0:044 seconds", "1:041 minute, 4 seconds".
     const m = line.match(
-      /^((?:\d{1,2}:)?\d{1,2}:\d{2}(?:\.\d+)?)(?:\d+ phút(?:, \d+ giây)?|\d+ giây)?\s*(.*)$/,
+      /^((?:\d{1,2}:)?\d{1,2}:\d{2}(?:\.\d+)?)(?:\d+ (?:phút|minutes?)(?:, \d+ (?:giây|seconds?))?|\d+ (?:giây|seconds?))?\s*(.*)$/,
     );
     if (m) {
       const start = toSeconds(m[1]);
-      if (m[2]) segments.push({ start, text: m[2] });
-      else pending = start;
+      if (!m[2].trim()) {
+        // Timestamp on its own line: the caption text comes on the next line.
+        pending = start;
+        continue;
+      }
+      const text = stripSoundTags(m[2]);
+      if (text) segments.push({ start, text });
       continue;
     }
+    // A line that is only a sound tag, e.g. "[Use other door]", is not speech.
+    const cleaned = stripSoundTags(line);
+    if (!cleaned) continue;
     if (pending !== null) {
-      segments.push({ start: pending, text: line });
+      segments.push({ start: pending, text: cleaned });
       pending = null;
     } else if (segments.length > 0) {
-      segments[segments.length - 1].text += ` ${line}`;
+      segments[segments.length - 1].text += ` ${cleaned}`;
     } else {
       orphan = true;
     }
