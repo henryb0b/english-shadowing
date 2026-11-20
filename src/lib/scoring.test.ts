@@ -1,10 +1,15 @@
 import { describe, expect, it } from 'vitest';
 import { coachingMessage, pickCoachingCriterion, totalScore } from './scoring';
 import { parseTranscript, validateAudioRows } from './lessonParser';
-import { BUILTIN_STORIES } from '../data/stories';
+import type { Sentence } from '../types';
 
-const presentingFirst = BUILTIN_STORIES.find((s) => s.id === 'presenting-first')!;
-const firstLine = presentingFirst.sentences.find((s) => s.text.startsWith('You know'))!;
+const firstLine: Sentence = {
+  id: 'fixture',
+  text: "You know we're presenting FIRST, right?",
+  chunks: ['You know', "we're presenting FIRST,", 'right?'],
+  stress: 'FIRST',
+  scorable: true,
+};
 
 describe('scoring', () => {
   it('adds 2 + 2 + 1 to 5 out of 6', () => {
@@ -37,26 +42,6 @@ describe('scoring', () => {
     expect(coachingMessage({ rhythm: 2, phrase: 2, stress: 2 }, 'rhythm', firstLine)).toMatch(
       /câu kế tiếp/,
     );
-  });
-});
-
-describe('built-in stories', () => {
-  it('has six stories with 4–6 sentences, two scorable sentences each', () => {
-    expect(BUILTIN_STORIES).toHaveLength(6);
-    for (const story of BUILTIN_STORIES) {
-      expect(story.sentences.length).toBeGreaterThanOrEqual(4);
-      expect(story.sentences.length).toBeLessThanOrEqual(6);
-      expect(story.sentences.filter((s) => s.scorable).length).toBeGreaterThanOrEqual(2);
-    }
-  });
-
-  it('keeps scorable chunks identical to the sentence text', () => {
-    for (const story of BUILTIN_STORIES) {
-      for (const sentence of story.sentences.filter((s) => s.scorable)) {
-        expect(sentence.chunks!.join(' ')).toBe(sentence.text);
-        expect(sentence.text).toContain(sentence.stress!);
-      }
-    }
   });
 });
 

@@ -63,7 +63,8 @@ export default function Library({ stories, progress, onOpen, onDelete, canEdit }
         </div>
       </div>
 
-      {visible.length === 0 && <p className="muted">Không có bài nào khớp bộ lọc.</p>}
+      {stories.length === 0 && <p className="muted">Chưa có bài nào. Giáo viên có thể tạo bài trong tab Tạo bài luyện.</p>}
+      {stories.length > 0 && visible.length === 0 && <p className="muted">Không có bài nào khớp bộ lọc.</p>}
 
       <div className="card-grid">
         {visible.map((story) => {
