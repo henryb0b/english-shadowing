@@ -32,7 +32,7 @@ export default function Practice({ story, progress, updateProgress, voices, voic
   const sentences = story.sentences;
   const [player] = useState(() => new LessonPlayer());
   const [audioState, setAudioState] = useState<'none' | 'loading' | 'ready' | 'missing'>(
-    story.audioId ? 'loading' : 'none',
+    story.audioId || story.audioUrl ? 'loading' : 'none',
   );
   const [idx, setIdx] = useState(0);
   const [speed, setSpeed] = useState<Speed>(0.9);
@@ -86,6 +86,15 @@ export default function Practice({ story, progress, updateProgress, voices, voic
 
   /* Load teacher audio, if any. */
   useEffect(() => {
+    if (story.audioUrl) {
+      // Shared lesson: media lives in cloud storage and streams from its public URL.
+      player.setAudioSource(story.audioUrl);
+      setAudioState('ready');
+      return () => {
+        player.stop();
+        player.setAudioSource(null);
+      };
+    }
     if (!story.audioId) {
       player.setAudioSource(null);
       return;

@@ -2,14 +2,16 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import type { CriterionKey, Difficulty, IeltsPart, Sentence, Story } from '../types';
 import { LessonPlayer } from '../lib/player';
 import { parseTranscript, parseYouTubeTranscript, validateAudioRows, type AudioRowInput } from '../lib/lessonParser';
-import { getAudio, putAudio } from '../lib/storage';
 import { parseYouTubeId } from '../lib/youtube';
+import { signIn, signOut } from '../lib/cloud';
 import { FOCUS_LABEL } from './labels';
 
 interface Props {
   voice: SpeechSynthesisVoice | null;
-  onSave: (story: Story) => Promise<void>;
+  onSave: (story: Story, file: File | null) => Promise<string[]>;
   onDone: () => void;
+  cloudEnabled: boolean;
+  isTeacher: boolean;
 }
 
 type Mode = 'transcript' | 'audio' | 'youtube';
@@ -42,7 +44,8 @@ function rowToSentence(row: Row, index: number): { sentence: Sentence | null; wa
   };
 }
 
-export default function CreateLesson({ voice, onSave, onDone }: Props) {
+export default function CreateLesson({ voice, onSave, onDone, cloudEnabled, isTeacher }: Props) {
+  const locked = cloudEnabled && !isTeacher;
   const [title, setTitle] = useState('');
   const [difficulty, setDifficulty] = useState<Difficulty>('Cơ bản');
   const [part, setPart] = useState<IeltsPart>(1);
@@ -138,6 +141,7 @@ export default function CreateLesson({ voice, onSave, onDone }: Props) {
 
   const save = async () => {
     setMessage(null);
+    if (locked) return setMessage({ kind: 'error', text: 'Hãy đăng nhập giáo viên để thêm bài chung.' });
     if (!title.trim()) return setMessage({ kind: 'error', text: 'Hãy nhập tiêu đề bài.' });
     if (!phraseEn.trim()) return setMessage({ kind: 'error', text: 'Hãy nhập cụm từ giao tiếp dùng ngoài bài.' });
     if (!question.trim()) return setMessage({ kind: 'error', text: 'Hãy nhập câu hỏi IELTS Speaking.' });
@@ -192,23 +196,15 @@ export default function CreateLesson({ voice, onSave, onDone }: Props) {
       story.youtubeId = youtubeId;
     }
 
-    if (mode === 'audio' && file) {
-      const audioId = `${id}-audio`;
-      const stored = await putAudio(audioId, file);
-      const readBack = stored ? await getAudio(audioId) : null;
-      if (readBack) {
-        story.audioId = audioId;
-        story.audioPersistent = true;
-      } else {
-        story.audioPersistent = false;
-        warnings.unshift(
-          'Trình duyệt này không giữ được file audio qua lần tải lại trang. Bài vẫn được lưu, nhưng audio sẽ không còn sau khi tải lại; khi đó bài dùng giọng đọc tổng hợp nếu thiết bị có en-US.',
-        );
-      }
+    let storeWarnings: string[] = [];
+    try {
+      storeWarnings = await onSave(story, mode === 'audio' ? file : null);
+    } catch (err) {
+      setSaving(false);
+      return setMessage({ kind: 'error', text: (err as Error).message });
     }
-
-    await onSave(story);
     setSaving(false);
+    warnings.unshift(...storeWarnings);
     if (warnings.length > 0) {
       setMessage({ kind: 'warn', text: `Đã lưu bài. Lưu ý: ${warnings.join(' ')}` });
       return;
@@ -220,14 +216,29 @@ export default function CreateLesson({ voice, onSave, onDone }: Props) {
     (s) => s!.scorable,
   ).length;
 
+  if (locked) {
+    return (
+      <section aria-labelledby="create-title" className="create">
+        <div className="section-head">
+          <h2 id="create-title">Tạo bài luyện</h2>
+          <p className="muted">Phần này dành cho giáo viên. Học sinh vẫn xem và luyện bài bình thường.</p>
+        </div>
+        <TeacherLogin signedIn={false} />
+      </section>
+    );
+  }
+
   return (
     <section aria-labelledby="create-title" className="create">
       <div className="section-head">
         <h2 id="create-title">Tạo bài luyện</h2>
         <p className="muted">
-          Bài của bạn được lưu trên thiết bị này. Chỉ các câu có đủ cụm ngắt và từ cần nhấn mới được bật tự chấm.
+          {cloudEnabled
+            ? 'Bài bạn lưu sẽ hiển thị cho mọi học sinh. Chỉ các câu có đủ cụm ngắt và từ cần nhấn mới được bật tự chấm.'
+            : 'Bài của bạn được lưu trên thiết bị này. Chỉ các câu có đủ cụm ngắt và từ cần nhấn mới được bật tự chấm.'}
         </p>
       </div>
+      {cloudEnabled && <TeacherLogin signedIn={isTeacher} />}
 
       <div className="card form">
         <label className="field">
@@ -443,5 +454,56 @@ export default function CreateLesson({ voice, onSave, onDone }: Props) {
         {saving ? 'Đang lưu…' : 'Lưu bài'}
       </button>
     </section>
+  );
+}
+
+function TeacherLogin({ signedIn }: { signedIn: boolean }) {
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+
+  if (signedIn) {
+    return (
+      <div className="card form">
+        <p>Đã đăng nhập giáo viên. Bài bạn lưu sẽ hiển thị cho mọi học sinh.</p>
+        <button type="button" className="btn" onClick={() => signOut()}>
+          Đăng xuất
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <form
+      className="card form"
+      onSubmit={async (e) => {
+        e.preventDefault();
+        setBusy(true);
+        setError(null);
+        try {
+          await signIn(email.trim(), password);
+          setPassword('');
+        } catch (err) {
+          setError((err as Error).message);
+        } finally {
+          setBusy(false);
+        }
+      }}
+    >
+      <p className="label-strong">Đăng nhập giáo viên</p>
+      <label className="field">
+        <span>Email</span>
+        <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} autoComplete="username" />
+      </label>
+      <label className="field">
+        <span>Mật khẩu</span>
+        <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} autoComplete="current-password" />
+      </label>
+      {error && <p className="warn-text small">{error}</p>}
+      <button type="submit" className="btn primary" disabled={busy || !email || !password}>
+        {busy ? 'Đang đăng nhập…' : 'Đăng nhập'}
+      </button>
+    </form>
   );
 }

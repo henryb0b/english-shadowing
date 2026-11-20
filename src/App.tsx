@@ -13,6 +13,9 @@ import {
   emptyProgress,
 } from './lib/storage';
 import { getEnUSVoices, waitForVoices } from './lib/player';
+import { cloudEnabled, deleteLesson as deleteCloudLesson, fetchLessons, getSession, insertLesson, onSessionChange } from './lib/cloud';
+import type { Session } from '@supabase/supabase-js';
+import { putAudio, getAudio } from './lib/storage';
 import Library from './components/Library';
 import Practice from './components/Practice';
 import Progress from './components/Progress';
@@ -29,7 +32,9 @@ const TABS: { id: Tab; label: string }[] = [
 export default function App() {
   const [tab, setTab] = useState<Tab>('library');
   const [activeId, setActiveId] = useState<string | null>(null);
-  const [lessons, setLessons] = useState<Story[]>(() => loadTeacherLessons());
+  const [lessons, setLessons] = useState<Story[]>(() => (cloudEnabled ? [] : loadTeacherLessons()));
+  const [session, setSession] = useState<Session | null>(null);
+  const isTeacher = !cloudEnabled || session !== null;
   const [progress, setProgress] = useState<ProgressData>(() => loadProgress());
   const [voices, setVoices] = useState<SpeechSynthesisVoice[]>([]);
   const [voiceName, setVoiceName] = useState<string | null>(() => loadVoiceName());
@@ -56,6 +61,20 @@ export default function App() {
     };
   }, []);
 
+  useEffect(() => {
+    if (!cloudEnabled) return;
+    let alive = true;
+    fetchLessons()
+      .then((list) => alive && setLessons(list))
+      .catch((err: Error) => alive && setStorageWarning(err.message));
+    getSession().then((s) => alive && setSession(s));
+    const unsubscribe = onSessionChange((s) => setSession(s));
+    return () => {
+      alive = false;
+      unsubscribe();
+    };
+  }, []);
+
   const updateProgress = useCallback((fn: (p: ProgressData) => ProgressData) => {
     setProgress((prev) => {
       const next = fn(prev);
@@ -73,14 +92,46 @@ export default function App() {
     setVoiceName(name);
   };
 
-  const addLesson = async (story: Story) => {
+  /** Saves a new lesson: to shared storage when configured, otherwise on this device. Returns warnings to show. */
+  const addLesson = async (story: Story, file: File | null): Promise<string[]> => {
+    if (cloudEnabled) {
+      await insertLesson(story, file);
+      setLessons((prev) => [...prev, story]);
+      return [];
+    }
+    const warnings: string[] = [];
+    if (file) {
+      const audioId = `${story.id}-audio`;
+      const stored = await putAudio(audioId, file);
+      const readBack = stored ? await getAudio(audioId) : null;
+      if (readBack) {
+        story.audioId = audioId;
+        story.audioPersistent = true;
+      } else {
+        story.audioPersistent = false;
+        warnings.push(
+          'Trình duyệt này không giữ được file audio qua lần tải lại trang. Bài vẫn được lưu, nhưng audio sẽ không còn sau khi tải lại; khi đó bài dùng giọng đọc tổng hợp nếu thiết bị có en-US.',
+        );
+      }
+    }
     const next = [...lessons, story];
     setLessons(next);
     saveTeacherLessons(next);
+    return warnings;
   };
 
   const removeLesson = async (story: Story) => {
-    if (!window.confirm(`Xóa bài "${story.title}" khỏi thiết bị này?`)) return;
+    if (!window.confirm(`Xóa bài "${story.title}"?`)) return;
+    if (cloudEnabled) {
+      try {
+        await deleteCloudLesson(story);
+      } catch (err) {
+        setStorageWarning((err as Error).message);
+        return;
+      }
+      setLessons((prev) => prev.filter((l) => l.id !== story.id));
+      return;
+    }
     const next = lessons.filter((l) => l.id !== story.id);
     setLessons(next);
     saveTeacherLessons(next);
@@ -146,11 +197,11 @@ export default function App() {
             onBack={() => setActiveId(null)}
           />
         ) : tab === 'library' ? (
-          <Library stories={stories} progress={progress} onOpen={openStory} onDelete={removeLesson} />
+          <Library stories={stories} progress={progress} onOpen={openStory} onDelete={removeLesson} canEdit={isTeacher} />
         ) : tab === 'progress' ? (
           <Progress stories={stories} progress={progress} onReset={resetProgress} />
         ) : (
-          <CreateLesson voice={voice} onSave={addLesson} onDone={() => setTab('library')} />
+          <CreateLesson voice={voice} onSave={addLesson} onDone={() => setTab('library')} cloudEnabled={cloudEnabled} isTeacher={isTeacher} />
         )}
       </main>
     </div>

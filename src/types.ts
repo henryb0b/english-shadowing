@@ -28,6 +28,8 @@ export interface Story {
   ieltsQuestion: string;
   sentences: Sentence[];
   source: 'builtin' | 'teacher';
+  /** Public URL of uploaded media in shared storage (shared teacher lessons only). */
+  audioUrl?: string;
   /** Key of an audio blob in IndexedDB (teacher audio lessons only). */
   audioId?: string;
   audioPersistent?: boolean;

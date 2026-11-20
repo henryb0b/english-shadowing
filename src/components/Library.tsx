@@ -7,12 +7,13 @@ interface Props {
   progress: ProgressData;
   onOpen: (id: string) => void;
   onDelete: (story: Story) => void;
+  canEdit: boolean;
 }
 
 const DIFFICULTIES: ('Tất cả' | Difficulty)[] = ['Tất cả', 'Cơ bản', 'Trung bình', 'Nâng cao'];
 const PARTS: ('Tất cả' | IeltsPart)[] = ['Tất cả', 1, 2, 3];
 
-export default function Library({ stories, progress, onOpen, onDelete }: Props) {
+export default function Library({ stories, progress, onOpen, onDelete, canEdit }: Props) {
   const [difficulty, setDifficulty] = useState<'Tất cả' | Difficulty>('Tất cả');
   const [part, setPart] = useState<'Tất cả' | IeltsPart>('Tất cả');
 
@@ -88,7 +89,7 @@ export default function Library({ stories, progress, onOpen, onDelete }: Props) 
                 <button type="button" className="btn primary" onClick={() => onOpen(story.id)}>
                   Mở bài
                 </button>
-                {story.source === 'teacher' && (
+                {story.source === 'teacher' && canEdit && (
                   <button type="button" className="btn ghost danger" onClick={() => onDelete(story)}>
                     Xóa bài
                   </button>
